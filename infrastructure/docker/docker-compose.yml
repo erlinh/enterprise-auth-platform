@@ -1,0 +1,175 @@
+version: '3.8'
+
+services:
+  # PostgreSQL for SpiceDB
+  spicedb-postgres:
+    image: postgres:15
+    container_name: spicedb-postgres
+    environment:
+      POSTGRES_DB: spicedb
+      POSTGRES_USER: spicedb
+      POSTGRES_PASSWORD: spicedbpass
+    ports:
+      - "5432:5432"
+    volumes:
+      - spicedb-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U spicedb -d spicedb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - platform-network
+
+  # SpiceDB - Authorization Engine
+  spicedb:
+    image: authzed/spicedb:latest
+    container_name: spicedb
+    command: serve
+    environment:
+      SPICEDB_GRPC_PRESHARED_KEY: "mysecret"
+      SPICEDB_DATASTORE_ENGINE: postgres
+      SPICEDB_DATASTORE_CONN_URI: "postgres://spicedb:spicedbpass@spicedb-postgres:5432/spicedb?sslmode=disable"
+    ports:
+      - "50051:50051"  # gRPC
+      - "8443:8443"    # HTTP/REST gateway
+      - "9090:9090"    # Metrics
+    depends_on:
+      spicedb-postgres:
+        condition: service_healthy
+    networks:
+      - platform-network
+
+  # Redis for caching
+  redis:
+    image: redis:7-alpine
+    container_name: platform-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - platform-network
+
+  # Authorization Service (Node.js)
+  authz-service:
+    build:
+      context: ../../src/services/authz
+      dockerfile: Dockerfile
+    container_name: authz-service
+    environment:
+      PORT: 3010
+      SPICEDB_ENDPOINT: spicedb:50051
+      SPICEDB_TOKEN: mysecret
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "3010:3010"
+    depends_on:
+      - spicedb
+      - redis
+    networks:
+      - platform-network
+
+  # API Gateway (YARP)
+  gateway:
+    build:
+      context: ../../src/backend/Gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:5000
+      AuthZ__ServiceUrl: http://authz-service:3010
+      Azure__TenantId: ${AZURE_TENANT_ID}
+      Azure__ClientId: ${AZURE_CLIENT_ID}
+    ports:
+      - "5000:5000"
+    depends_on:
+      - authz-service
+    networks:
+      - platform-network
+
+  # Catalogue API
+  catalogue-api:
+    build:
+      context: ../../src/backend/Catalogue.Api
+      dockerfile: Dockerfile
+    container_name: catalogue-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:5001
+      AuthZ__ServiceUrl: http://authz-service:3010
+      Azure__TenantId: ${AZURE_TENANT_ID}
+      Azure__ClientId: ${AZURE_CLIENT_ID}
+    ports:
+      - "5001:5001"
+    depends_on:
+      - authz-service
+    networks:
+      - platform-network
+
+  # Analytics API
+  analytics-api:
+    build:
+      context: ../../src/backend/Analytics.Api
+      dockerfile: Dockerfile
+    container_name: analytics-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:5002
+      AuthZ__ServiceUrl: http://authz-service:3010
+      Azure__TenantId: ${AZURE_TENANT_ID}
+      Azure__ClientId: ${AZURE_CLIENT_ID}
+    ports:
+      - "5002:5002"
+    depends_on:
+      - authz-service
+    networks:
+      - platform-network
+
+  # Document Manager API
+  docmanager-api:
+    build:
+      context: ../../src/backend/DocManager.Api
+      dockerfile: Dockerfile
+    container_name: docmanager-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:5003
+      AuthZ__ServiceUrl: http://authz-service:3010
+      Azure__TenantId: ${AZURE_TENANT_ID}
+      Azure__ClientId: ${AZURE_CLIENT_ID}
+    ports:
+      - "5003:5003"
+    depends_on:
+      - authz-service
+    networks:
+      - platform-network
+
+  # Reporting API
+  reporting-api:
+    build:
+      context: ../../src/backend/Reporting.Api
+      dockerfile: Dockerfile
+    container_name: reporting-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:5004
+      AuthZ__ServiceUrl: http://authz-service:3010
+      Azure__TenantId: ${AZURE_TENANT_ID}
+      Azure__ClientId: ${AZURE_CLIENT_ID}
+    ports:
+      - "5004:5004"
+    depends_on:
+      - authz-service
+    networks:
+      - platform-network
+
+volumes:
+  spicedb-postgres-data:
+  redis-data:
+
+networks:
+  platform-network:
+    driver: bridge
+
