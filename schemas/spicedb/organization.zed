@@ -1,0 +1,61 @@
+/**
+ * Organization Namespace
+ * Manages multi-tenancy and organizational hierarchy.
+ * Departments belong to organizations; teams belong to departments.
+ * Permissions cascade down the hierarchy.
+ */
+
+definition user {}
+
+definition team {
+    relation organization: organization
+    relation department: department
+    relation lead: user
+    relation member: user
+
+    permission view_members = lead + member + department->manage_team
+    permission manage_team = lead + department->admin_access
+}
+
+definition department {
+    relation organization: organization
+    relation manager: user
+    relation member: user
+
+    // Permissions
+    permission admin_access = manager + organization->admin_access
+    permission view_members = manager + member + organization->view_members
+    permission manage_team = manager + organization->admin_access
+    permission is_member = member + manager
+}
+
+definition organization {
+    // Platform-level override
+    relation platform: platform
+
+    // Relations - roles within the organization
+    relation owner: user
+    relation admin: user
+    relation billing_admin: user
+    relation member: user
+    relation external_partner: user
+
+    // Permissions derived from relations
+    permission manage_org = owner + platform->manage_organizations
+    permission admin_access = owner + admin + platform->manage_organizations
+    permission invite_members = owner + admin
+    permission manage_billing = owner + billing_admin
+    permission view_members = owner + admin + member + billing_admin
+    permission view_billing = owner + billing_admin
+    permission is_member = owner + admin + member + billing_admin
+    permission is_external = external_partner
+}
+
+// Reference to platform for cross-namespace checks
+definition platform {
+    relation super_admin: user
+    relation platform_admin: user
+    
+    permission manage_organizations = super_admin + platform_admin
+}
+

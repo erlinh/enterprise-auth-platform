@@ -1,0 +1,257 @@
+/**
+ * Enterprise Auth Platform - Combined SpiceDB Schema
+ * This file contains all namespace definitions for the platform.
+ * 
+ * Namespaces:
+ * - platform: Global administrative access
+ * - organization: Multi-tenancy and org hierarchy
+ * - product: Product definitions for licensing
+ * - license: Product licensing per organization
+ * - application: Product catalogue visibility
+ * - analytics_*: Analytics Dashboard product
+ * - docmgr_*: Document Manager product
+ * - reporting_*: Reporting API product
+ */
+
+// ============================================================================
+// CORE DEFINITIONS
+// ============================================================================
+
+definition user {}
+
+definition service_account {
+    relation organization: organization
+    relation owner: user
+    permission is_valid = organization->is_member
+}
+
+// ============================================================================
+// PLATFORM NAMESPACE - Global Administration
+// ============================================================================
+
+definition platform {
+    relation super_admin: user
+    relation platform_admin: user
+    relation support_agent: user
+
+    permission manage_all = super_admin
+    permission manage_organizations = super_admin + platform_admin
+    permission view_audit_logs = super_admin + platform_admin + support_agent
+    permission impersonate_users = super_admin
+    permission assist_users = super_admin + support_agent
+}
+
+// ============================================================================
+// ORGANIZATION NAMESPACE - Multi-tenancy
+// ============================================================================
+
+definition organization {
+    relation platform: platform
+    relation owner: user
+    relation admin: user
+    relation billing_admin: user
+    relation member: user
+    relation external_partner: user
+
+    permission manage_org = owner + platform->manage_organizations
+    permission admin_access = owner + admin + platform->manage_organizations
+    permission invite_members = owner + admin
+    permission manage_billing = owner + billing_admin
+    permission view_members = owner + admin + member + billing_admin
+    permission view_billing = owner + billing_admin
+    permission is_member = owner + admin + member + billing_admin
+    permission is_admin = owner + admin + platform->manage_organizations
+    permission is_external = external_partner
+}
+
+definition department {
+    relation organization: organization
+    relation manager: user
+    relation member: user
+
+    permission admin_access = manager + organization->admin_access
+    permission view_members = manager + member + organization->view_members
+    permission manage_team = manager + organization->admin_access
+    permission is_member = member + manager
+    permission is_manager = manager
+}
+
+definition team {
+    relation organization: organization
+    relation department: department
+    relation lead: user
+    relation member: user
+
+    permission view_members = lead + member + department->manage_team
+    permission manage_team = lead + department->admin_access
+    permission is_member = lead + member
+}
+
+// ============================================================================
+// LICENSING NAMESPACE - Product Access Control
+// ============================================================================
+
+definition product {
+    relation platform: platform
+    
+    permission manage = platform->manage_all
+}
+
+definition license {
+    relation organization: organization
+    relation product: product
+    relation active: user  // Marker relation - if any user is related, license is active
+    relation assigned_user: user
+
+    permission is_active = active
+    permission is_assigned = assigned_user
+    permission can_use = organization->is_member
+}
+
+// ============================================================================
+// CATALOGUE NAMESPACE - Application Visibility
+// ============================================================================
+
+definition category {
+    relation platform: platform
+    
+    permission manage = platform->manage_all
+}
+
+definition application {
+    relation platform: platform
+    relation category: category
+    relation product: product
+    relation visible_to_org: organization
+    relation visible_to_user: user
+    relation hidden_from_user: user
+    relation featured: user  // Marker
+    relation beta: user      // Marker
+
+    permission can_view_in_catalogue = visible_to_org->is_member + visible_to_user + platform->manage_all - hidden_from_user
+    permission can_launch = can_view_in_catalogue
+    permission manage = platform->manage_all
+}
+
+// ============================================================================
+// ANALYTICS NAMESPACE - Analytics Dashboard Product
+// ============================================================================
+
+definition analytics_data_source {
+    relation organization: organization
+    relation owner: user
+    relation configurator: user
+
+    permission configure = owner + configurator + organization->is_admin
+    permission view = configure + organization->is_member
+}
+
+definition analytics_dashboard {
+    relation organization: organization
+    relation owner: user
+    relation editor: user
+    relation viewer: user
+    relation department_viewer: department
+    relation org_visible: user  // Marker - if set, visible to all org members
+
+    permission view = owner + editor + viewer + department_viewer->is_member + organization->is_admin
+    permission edit = owner + editor + organization->is_admin
+    permission delete = owner + organization->is_admin
+    permission share = owner + editor
+    permission export = view
+    permission configure = owner + organization->is_admin
+}
+
+definition analytics_report {
+    relation organization: organization
+    relation dashboard: analytics_dashboard
+    relation owner: user
+    relation editor: user
+    relation viewer: user
+
+    permission view = owner + editor + viewer + dashboard->view + organization->is_admin
+    permission edit = owner + editor + organization->is_admin
+    permission delete = owner + organization->is_admin
+    permission share = owner + editor
+    permission export = view
+}
+
+// ============================================================================
+// DOCUMENT MANAGER NAMESPACE - Document Management Product
+// ============================================================================
+
+definition docmgr_folder {
+    relation organization: organization
+    relation parent: docmgr_folder
+    relation owner: user
+    relation editor: user
+    relation viewer: user
+    relation org_visible: user  // Marker
+
+    permission view = owner + editor + viewer + parent->view + organization->is_admin
+    permission edit = owner + editor + parent->edit + organization->is_admin
+    permission delete = owner + parent->delete + organization->is_admin
+    permission create_document = edit
+    permission create_subfolder = edit
+    permission manage = owner + organization->is_admin
+    permission share = owner + editor
+}
+
+definition docmgr_document {
+    relation organization: organization
+    relation folder: docmgr_folder
+    relation owner: user
+    relation editor: user
+    relation commenter: user
+    relation viewer: user
+    relation org_visible: user  // Marker
+
+    permission view = owner + editor + commenter + viewer + folder->view + organization->is_admin
+    permission edit = owner + editor + folder->edit + organization->is_admin
+    permission delete = owner + folder->delete + organization->is_admin
+    permission comment = owner + editor + commenter + folder->edit
+    permission share = owner + editor
+    permission create_share_link = owner + editor
+}
+
+definition docmgr_comment {
+    relation document: docmgr_document
+    relation author: user
+
+    permission view = document->view
+    permission edit = author
+    permission delete = author + document->edit
+}
+
+definition docmgr_share_link {
+    relation document: docmgr_document
+    relation creator: user
+    relation token: user  // The "token" that grants access
+
+    permission access = token
+    permission manage = creator + document->share
+}
+
+// ============================================================================
+// REPORTING API NAMESPACE - API Service
+// ============================================================================
+
+definition reporting_scope {
+    relation user_holder: user
+    relation service_holder: service_account
+
+    permission is_held = user_holder + service_holder->is_valid
+}
+
+definition reporting_endpoint {
+    relation organization: organization
+    relation required_scope: reporting_scope
+    relation read_scope: reporting_scope
+    relation write_scope: reporting_scope
+
+    permission invoke = required_scope->is_held + organization->is_admin
+    permission read_data = read_scope->is_held + invoke
+    permission write_data = write_scope->is_held + organization->is_admin
+    permission admin = organization->is_admin
+}
+

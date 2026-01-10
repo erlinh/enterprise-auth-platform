@@ -1,0 +1,77 @@
+/**
+ * Analytics Dashboard Namespace
+ * Defines authorization for the Analytics Dashboard product.
+ * Supports owner/editor/viewer relations at individual dashboard level,
+ * plus department_viewer for team-based access.
+ */
+
+definition user {}
+
+definition organization {
+    relation admin: user
+    relation member: user
+
+    permission is_admin = admin
+    permission is_member = member + admin
+}
+
+definition department {
+    relation member: user
+    relation manager: user
+
+    permission is_member = member + manager
+    permission is_manager = manager
+}
+
+definition data_source {
+    relation organization: organization
+    relation owner: user
+    relation configurator: user
+
+    // Org admins can configure all data sources
+    permission configure = owner + configurator + organization->is_admin
+    permission view = configure + organization->is_member
+}
+
+definition widget {
+    relation dashboard: dashboard
+    relation creator: user
+
+    permission view = dashboard->view
+    permission edit = dashboard->edit + creator
+    permission delete = dashboard->edit
+}
+
+definition report {
+    relation organization: organization
+    relation owner: user
+    relation editor: user
+    relation viewer: user
+    relation department_viewer: department
+
+    permission view = owner + editor + viewer + department_viewer->is_member + organization->is_admin
+    permission edit = owner + editor + organization->is_admin
+    permission delete = owner + organization->is_admin
+    permission share = owner + editor
+    permission export = view
+}
+
+definition dashboard {
+    relation organization: organization
+    relation owner: user
+    relation editor: user
+    relation viewer: user
+    relation department_viewer: department
+
+    // Org-wide visibility toggle
+    relation org_visible: dashboard
+
+    // Permissions
+    permission view = owner + editor + viewer + department_viewer->is_member + organization->is_admin + (org_visible->view & organization->is_member)
+    permission edit = owner + editor + organization->is_admin
+    permission delete = owner + organization->is_admin
+    permission share = owner + editor
+    permission export = view
+    permission configure_data_source = owner + organization->is_admin
+}
+

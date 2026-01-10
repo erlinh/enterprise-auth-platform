@@ -1,0 +1,56 @@
+/**
+ * Licensing Namespace
+ * Controls which organizations have access to which products.
+ * Separating licensing from product-specific permissions allows the licensing model
+ * to evolve independently.
+ */
+
+definition user {}
+
+definition organization {
+    relation member: user
+    permission is_member = member
+}
+
+definition product {
+    relation id: product
+}
+
+definition product_tier {
+    relation product: product
+    relation features: product_tier
+
+    permission has_feature = features->has_feature
+}
+
+definition license {
+    // Which organization holds this license
+    relation licensed_organization: organization
+
+    // Which product this license grants access to
+    relation product: product
+
+    // Which tier of the product (basic, pro, enterprise, etc.)
+    relation tier: product_tier
+
+    // Optional: specific users who can use this license (for seat-based licensing)
+    relation assigned_user: user
+
+    // License status
+    relation active: license
+
+    // Permissions
+    permission can_access_product = licensed_organization->is_member & active->can_access_product
+    permission can_use_feature = tier->has_feature & can_access_product
+    permission is_assigned = assigned_user
+}
+
+// Convenience definition for checking if an org has access to a product
+definition org_product_access {
+    relation organization: organization
+    relation product: product
+    relation license: license
+
+    permission has_access = license->can_access_product
+}
+

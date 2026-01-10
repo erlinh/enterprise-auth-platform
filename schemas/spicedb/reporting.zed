@@ -1,0 +1,73 @@
+/**
+ * Reporting API Namespace
+ * Defines authorization for the API-only Reporting service.
+ * Designed for service-to-service communication using client credentials,
+ * and user-delegated access using on-behalf-of flow.
+ * Service accounts are first-class subjects that can hold scopes independently of users.
+ */
+
+definition user {}
+
+definition service_account {
+    relation organization: organization
+    relation owner: user
+
+    permission is_valid = organization->is_member
+}
+
+definition organization {
+    relation admin: user
+    relation member: user
+
+    permission is_admin = admin
+    permission is_member = member + admin
+}
+
+definition rate_limit_tier {
+    // Tiers: free, standard, premium, unlimited
+    relation tier_name: rate_limit_tier
+}
+
+definition api_scope {
+    // Scopes: read, write, admin, export, etc.
+    relation name: api_scope
+
+    // Who holds this scope
+    relation user_holder: user
+    relation service_holder: service_account
+
+    // Rate limiting
+    relation rate_tier: rate_limit_tier
+
+    permission is_held_by_user = user_holder
+    permission is_held_by_service = service_holder
+    permission is_held = is_held_by_user + is_held_by_service
+}
+
+definition api_endpoint {
+    relation organization: organization
+
+    // Which scopes grant access to this endpoint
+    relation required_scope: api_scope
+
+    // HTTP method restrictions (optional fine-grained control)
+    relation read_scope: api_scope
+    relation write_scope: api_scope
+
+    // Permissions
+    permission invoke = required_scope->is_held + organization->is_admin
+    permission read_data = read_scope->is_held + organization->is_admin
+    permission write_data = write_scope->is_held + organization->is_admin
+    permission admin_api = organization->is_admin
+}
+
+// Convenience: check if user/service can invoke specific endpoint with specific scope
+definition api_access {
+    relation user: user
+    relation service_account: service_account
+    relation endpoint: api_endpoint
+    relation scope: api_scope
+
+    permission can_invoke = (scope->is_held_by_user & endpoint->invoke) + (scope->is_held_by_service & endpoint->invoke)
+}
+

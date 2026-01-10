@@ -1,0 +1,76 @@
+/**
+ * Document Manager Namespace
+ * Defines authorization for the Document Manager product.
+ * Implements hierarchical permissions where folder permissions cascade to contained documents.
+ * Supports org-wide visibility toggle.
+ */
+
+definition user {}
+
+definition organization {
+    relation admin: user
+    relation member: user
+
+    permission is_admin = admin
+    permission is_member = member + admin
+}
+
+definition share_link {
+    relation document: document
+    relation creator: user
+    relation active: share_link
+
+    // Anyone with the link can view if active
+    permission can_access = active->can_access
+    permission manage = creator + document->owner
+}
+
+definition comment {
+    relation document: document
+    relation author: user
+
+    permission view = document->view
+    permission edit = author
+    permission delete = author + document->edit
+}
+
+definition folder {
+    relation organization: organization
+    relation parent: folder
+    relation owner: user
+    relation editor: user
+    relation viewer: user
+
+    // Org-wide visibility
+    relation org_visible: folder
+
+    // Permissions with inheritance from parent folder
+    permission view = owner + editor + viewer + parent->view + organization->is_admin + (org_visible->view & organization->is_member)
+    permission edit = owner + editor + parent->edit + organization->is_admin
+    permission delete = owner + parent->delete + organization->is_admin
+    permission create_document = edit
+    permission create_subfolder = edit
+    permission manage_folder = owner + organization->is_admin
+    permission share = owner + editor
+}
+
+definition document {
+    relation organization: organization
+    relation folder: folder
+    relation owner: user
+    relation editor: user
+    relation commenter: user
+    relation viewer: user
+
+    // Org-wide visibility
+    relation org_visible: document
+
+    // Permissions - inherit from folder, with document-level overrides
+    permission view = owner + editor + commenter + viewer + folder->view + organization->is_admin + (org_visible->view & organization->is_member)
+    permission edit = owner + editor + folder->edit + organization->is_admin
+    permission delete = owner + folder->delete + organization->is_admin
+    permission comment = owner + editor + commenter + folder->edit
+    permission share = owner + editor
+    permission create_share_link = owner + editor
+}
+
