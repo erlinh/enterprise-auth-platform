@@ -1,0 +1,61 @@
+# Logs and runtime files
+.logs/
+.pids/
+*.log
+logs/
+
+# Build outputs
+**/bin/
+**/obj/
+**/dist/
+**/out/
+
+# Dependencies
+**/node_modules/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+*.local.json
+appsettings.*.local.json
+secrets/
+
+# Package lock files (keep package-lock.json, ignore others)
+yarn.lock
+pnpm-lock.yaml
+
+# Test coverage
+coverage/
+*.lcov
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Debug files
+*.pdb
+
+# NuGet
+*.nupkg
+.nuget/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Vite cache
+.vite/
