@@ -56,7 +56,7 @@ function App() {
     
     try {
       const token = await getAccessToken();
-      const response = await fetch('/api/authz/bulk-check', {
+      const response = await fetch('/api/authz/check/bulk', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

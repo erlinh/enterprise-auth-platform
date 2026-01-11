@@ -14,7 +14,7 @@ export default defineConfig({
       '/api/authz': {
         target: 'http://localhost:3010',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/authz/, ''),
+        rewrite: (path) => path.replace(/^\/api\/authz/, '/api/v1'),
       },
     },
   },
