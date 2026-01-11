@@ -28,11 +28,12 @@ function App() {
   }, [isAuthenticated, inProgress, instance]);
 
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (isAuthenticated && user?.id) {
       fetchPermissions();
       fetchTokenInfo();
     }
-  }, [isAuthenticated, user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user?.id]);
 
   const fetchTokenInfo = async () => {
     const token = await getAccessToken();
@@ -51,7 +52,7 @@ function App() {
   };
 
   const fetchPermissions = async () => {
-    if (!user) return;
+    if (!user || loadingPermissions) return;
     setLoadingPermissions(true);
     
     try {
