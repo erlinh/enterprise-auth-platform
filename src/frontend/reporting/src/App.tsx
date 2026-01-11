@@ -4,20 +4,28 @@ import { useAuth } from './auth/useAuth';
 import { loginRequest } from './auth/msalConfig';
 import './App.css';
 
-interface Permission {
+interface PermissionCheck {
+  resourceType: string;
+  resourceId: string;
   permission: string;
+  subjectType: string;
+  subjectId: string;
+}
+
+interface PermissionResult {
+  request: PermissionCheck;
   allowed: boolean;
 }
 
 interface AuthzResponse {
-  permissions: Permission[];
+  results: PermissionResult[];
 }
 
 function App() {
   const isAuthenticated = useIsAuthenticated();
   const { instance, inProgress } = useMsal();
   const { user, logout, getAccessToken } = useAuth();
-  const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [permissions, setPermissions] = useState<PermissionResult[]>([]);
   const [loadingPermissions, setLoadingPermissions] = useState(false);
   const [tokenInfo, setTokenInfo] = useState<{ exp?: number; iat?: number; aud?: string } | null>(null);
 
@@ -65,17 +73,17 @@ function App() {
         },
         body: JSON.stringify({
           checks: [
-            { resourceType: 'reporting_scope', resourceId: '*', permission: 'view', subjectType: 'user', subjectId: user.id },
-            { resourceType: 'reporting_scope', resourceId: '*', permission: 'manage', subjectType: 'user', subjectId: user.id },
-            { resourceType: 'reporting_endpoint', resourceId: '*', permission: 'call', subjectType: 'user', subjectId: user.id },
-            { resourceType: 'reporting_endpoint', resourceId: '*', permission: 'manage', subjectType: 'user', subjectId: user.id },
+            // Application-level permissions (from catalogue)
+            { resourceType: 'application', resourceId: 'reporting-api', permission: 'can_view_in_catalogue', subjectType: 'user', subjectId: user.id },
+            { resourceType: 'application', resourceId: 'reporting-api', permission: 'can_launch', subjectType: 'user', subjectId: user.id },
+            { resourceType: 'application', resourceId: 'reporting-api', permission: 'manage', subjectType: 'user', subjectId: user.id },
           ],
         }),
       });
       
       if (response.ok) {
         const data: AuthzResponse = await response.json();
-        setPermissions(data.permissions || []);
+        setPermissions(data.results || []);
       }
     } catch (error) {
       console.error('Failed to fetch permissions:', error);
@@ -207,7 +215,7 @@ function App() {
                   {permissions.map((p, i) => (
                     <div key={i} className={`permission-item ${p.allowed ? 'allowed' : 'denied'}`}>
                       <span className="permission-icon">{p.allowed ? '✅' : '❌'}</span>
-                      <span className="permission-name">{p.permission}</span>
+                      <span className="permission-name">{p.request.resourceType}:{p.request.resourceId}#{p.request.permission}</span>
                     </div>
                   ))}
                 </div>

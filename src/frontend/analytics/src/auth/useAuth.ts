@@ -14,7 +14,14 @@ export function useAuth() {
   };
 
   const logout = async () => {
-    await instance.logoutRedirect();
+    // Clear all MSAL cache from localStorage
+    const keys = Object.keys(localStorage).filter(k => k.startsWith('msal.'));
+    keys.forEach(k => localStorage.removeItem(k));
+    
+    // Redirect to Microsoft logout, then back to catalogue
+    await instance.logoutRedirect({
+      postLogoutRedirectUri: 'http://localhost:3000',
+    });
   };
 
   const getAccessToken = async (): Promise<string | null> => {

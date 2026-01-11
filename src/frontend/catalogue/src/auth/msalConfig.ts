@@ -11,8 +11,8 @@ export const msalConfig: Configuration = {
     postLogoutRedirectUri: window.location.origin,
   },
   cache: {
-    cacheLocation: 'sessionStorage',
-    storeAuthStateInCookie: false,
+    cacheLocation: 'localStorage', // Use localStorage for cross-tab SSO
+    storeAuthStateInCookie: true, // Enable for IE11/Edge compatibility and cross-site SSO
   },
   system: {
     loggerOptions: {

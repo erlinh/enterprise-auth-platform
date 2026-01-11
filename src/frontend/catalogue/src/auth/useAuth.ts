@@ -18,6 +18,10 @@ export function useAuth() {
 
   const logout = async () => {
     try {
+      // Clear all MSAL cache from localStorage
+      const keys = Object.keys(localStorage).filter(k => k.startsWith('msal.'));
+      keys.forEach(k => localStorage.removeItem(k));
+      
       await instance.logoutRedirect();
     } catch (error) {
       console.error('Logout failed:', error);
