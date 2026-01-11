@@ -26,7 +26,8 @@ FRONTEND_PORT=${FRONTEND_PORT:-3000}
 ANALYTICS_PORT=${ANALYTICS_PORT:-3001}
 DOCMANAGER_PORT=${DOCMANAGER_PORT:-3002}
 REPORTING_PORT=${REPORTING_PORT:-3003}
-ADMIN_PORT=${ADMIN_PORT:-3020}
+ADMIN_PORTAL_PORT=${ADMIN_PORTAL_PORT:-3005}
+SPICEDB_ADMIN_PORT=${SPICEDB_ADMIN_PORT:-3020}
 SPICEDB_TOKEN=${SPICEDB_TOKEN:-mysecret}
 SPICEDB_ENDPOINT=${SPICEDB_ENDPOINT:-localhost:50051}
 REDIS_URL=${REDIS_URL:-redis://localhost:6379}
@@ -161,29 +162,57 @@ start_frontend() {
 }
 
 # Start SpiceDB Admin
-start_admin() {
+# Start SpiceDB Admin
+start_spicedb_admin() {
     if [ ! -d "$PROJECT_ROOT/src/frontend/spicedb-admin" ]; then
         echo -e "  ${YELLOW}⚠${NC} SpiceDB Admin not found, skipping"
         return
     fi
     
-    if is_running "admin"; then
-        echo -e "  ${GREEN}✓${NC} SpiceDB Admin already running (PID: $(get_pid admin))"
+    if is_running "spicedb-admin"; then
+        echo -e "  ${GREEN}✓${NC} SpiceDB Admin already running (PID: $(get_pid spicedb-admin))"
         return
     fi
     
-    echo -e "  ${CYAN}Starting SpiceDB Admin on port $ADMIN_PORT...${NC}"
+    echo -e "  ${CYAN}Starting SpiceDB Admin on port $SPICEDB_ADMIN_PORT...${NC}"
     cd "$PROJECT_ROOT/src/frontend/spicedb-admin"
     
-    npm run dev -- --port "$ADMIN_PORT" --host > "$LOG_DIR/admin.log" 2>&1 &
+    npm run dev -- --port "$SPICEDB_ADMIN_PORT" --host > "$LOG_DIR/spicedb-admin.log" 2>&1 &
     
-    echo $! > "$PID_DIR/admin.pid"
+    echo $! > "$PID_DIR/spicedb-admin.pid"
     sleep 3
     
-    if is_running "admin"; then
-        echo -e "  ${GREEN}✓${NC} SpiceDB Admin started (PID: $(get_pid admin))"
+    if is_running "spicedb-admin"; then
+        echo -e "  ${GREEN}✓${NC} SpiceDB Admin started (PID: $(get_pid spicedb-admin))"
     else
-        echo -e "  ${RED}✗${NC} SpiceDB Admin failed to start. Check $LOG_DIR/admin.log"
+        echo -e "  ${RED}✗${NC} SpiceDB Admin failed to start. Check $LOG_DIR/spicedb-admin.log"
+    fi
+}
+
+# Start Admin Portal
+start_admin_portal() {
+    if [ ! -d "$PROJECT_ROOT/src/frontend/admin" ]; then
+        echo -e "  ${YELLOW}⚠${NC} Admin Portal not found, skipping"
+        return
+    fi
+    
+    if is_running "admin-portal"; then
+        echo -e "  ${GREEN}✓${NC} Admin Portal already running (PID: $(get_pid admin-portal))"
+        return
+    fi
+    
+    echo -e "  ${CYAN}Starting Admin Portal on port $ADMIN_PORTAL_PORT...${NC}"
+    cd "$PROJECT_ROOT/src/frontend/admin"
+    
+    npm run dev -- --port "$ADMIN_PORTAL_PORT" --host > "$LOG_DIR/admin-portal.log" 2>&1 &
+    
+    echo $! > "$PID_DIR/admin-portal.pid"
+    sleep 3
+    
+    if is_running "admin-portal"; then
+        echo -e "  ${GREEN}✓${NC} Admin Portal started (PID: $(get_pid admin-portal))"
+    else
+        echo -e "  ${RED}✗${NC} Admin Portal failed to start. Check $LOG_DIR/admin-portal.log"
     fi
 }
 
@@ -292,7 +321,8 @@ stop_services() {
     stop_service "reporting"
     stop_service "docmanager"
     stop_service "analytics"
-    stop_service "admin"
+    stop_service "admin-portal"
+    stop_service "spicedb-admin"
     stop_service "frontend"
     stop_service "catalogue-api"
     stop_service "authz"
@@ -301,6 +331,7 @@ stop_services() {
     pkill -f "node.*authz" 2>/dev/null || true
     pkill -f "Catalogue.Api" 2>/dev/null || true
     pkill -f "vite.*catalogue" 2>/dev/null || true
+    pkill -f "vite.*spicedb-admin" 2>/dev/null || true
     pkill -f "vite.*admin" 2>/dev/null || true
     pkill -f "vite.*analytics" 2>/dev/null || true
     pkill -f "vite.*docmanager" 2>/dev/null || true
@@ -322,7 +353,8 @@ start_all() {
     start_authz
     start_catalogue_api
     start_frontend
-    start_admin
+    start_spicedb_admin
+    start_admin_portal
     start_analytics
     start_docmanager
     start_reporting
@@ -391,12 +423,21 @@ show_status() {
         echo -e "    ${RED}○${NC} Frontend"
     fi
     
-    # Admin
+    # SpiceDB Admin
     if [ -d "$PROJECT_ROOT/src/frontend/spicedb-admin" ]; then
-        if is_running "admin"; then
-            echo -e "    ${GREEN}●${NC} SpiceDB Admin      http://localhost:$ADMIN_PORT"
+        if is_running "spicedb-admin"; then
+            echo -e "    ${GREEN}●${NC} SpiceDB Admin      http://localhost:$SPICEDB_ADMIN_PORT"
         else
             echo -e "    ${RED}○${NC} SpiceDB Admin"
+        fi
+    fi
+    
+    # Admin Portal
+    if [ -d "$PROJECT_ROOT/src/frontend/admin" ]; then
+        if is_running "admin-portal"; then
+            echo -e "    ${GREEN}●${NC} Admin Portal       http://localhost:$ADMIN_PORTAL_PORT"
+        else
+            echo -e "    ${RED}○${NC} Admin Portal"
         fi
     fi
     

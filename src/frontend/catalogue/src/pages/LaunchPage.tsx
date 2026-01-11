@@ -35,7 +35,7 @@ export default function LaunchPage() {
     loadApp();
   }, [id]);
 
-  // Countdown timer and redirect
+  // Countdown timer and open in new tab
   useEffect(() => {
     if (!app || error) return;
 
@@ -43,9 +43,9 @@ export default function LaunchPage() {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          // Redirect to the actual app
+          // Open app in new tab and go back to catalogue
           if (app.launchUrl.startsWith('http')) {
-            window.location.href = app.launchUrl;
+            window.open(app.launchUrl, '_blank', 'noopener,noreferrer');
           }
           return 0;
         }
@@ -106,7 +106,7 @@ export default function LaunchPage() {
                 Initializing secure session...
               </p>
               <p className={styles.countdown}>
-                Redirecting in {countdown}s
+                Opening in new tab in {countdown}s
               </p>
             </>
           ) : (
@@ -117,7 +117,7 @@ export default function LaunchPage() {
                   <path d="M22 4L12 14.01l-3-3" />
                 </svg>
               </div>
-              <p className={styles.statusText}>Session Ready</p>
+              <p className={styles.statusText}>App opened in new tab!</p>
             </>
           )}
         </div>
@@ -153,9 +153,9 @@ export default function LaunchPage() {
           {app.launchUrl.startsWith('http') && (
             <button 
               className={styles.launchNowBtn} 
-              onClick={() => window.location.href = app.launchUrl}
+              onClick={() => window.open(app.launchUrl, '_blank', 'noopener,noreferrer')}
             >
-              Launch Now →
+              Open in New Tab →
             </button>
           )}
         </div>
