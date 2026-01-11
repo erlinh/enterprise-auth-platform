@@ -11,32 +11,58 @@
  * - analytics_*: Analytics Dashboard product
  * - docmgr_*: Document Manager product
  * - reporting_*: Reporting API product
+ * 
+ * Usage:
+ * - Apply this schema using: zed schema write --schema-file=schema.zed
+ * - Or via the apply-schema.sh script
  */
 
 // ============================================================================
 // CORE DEFINITIONS
 // ============================================================================
 
+/**
+ * User - represents an authenticated user (typically from Entra ID)
+ * The user ID should be the Entra Object ID (OID)
+ */
 definition user {}
 
+/**
+ * Service Account - for machine-to-machine authentication
+ * Used for backend services that need to access APIs
+ */
 definition service_account {
     relation organization: organization
     relation owner: user
+    
     permission is_valid = organization->is_member
+    permission manage = owner + organization->is_admin
 }
 
 // ============================================================================
 // PLATFORM NAMESPACE - Global Administration
 // ============================================================================
 
+/**
+ * Platform - singleton resource representing the entire platform
+ * Usually instantiated as platform:main
+ */
 definition platform {
+    // Platform-wide administrative roles
     relation super_admin: user
     relation platform_admin: user
     relation support_agent: user
 
+    // Super admin has full control
     permission manage_all = super_admin
+    
+    // Platform admins can manage organizations
     permission manage_organizations = super_admin + platform_admin
+    
+    // Audit log access for compliance
     permission view_audit_logs = super_admin + platform_admin + support_agent
+    
+    // Support capabilities
     permission impersonate_users = super_admin
     permission assist_users = super_admin + support_agent
 }
@@ -45,91 +71,156 @@ definition platform {
 // ORGANIZATION NAMESPACE - Multi-tenancy
 // ============================================================================
 
+/**
+ * Organization - a tenant in the multi-tenant platform
+ * Each organization is linked to a platform for admin inheritance
+ */
 definition organization {
+    // Link to platform for permission inheritance
     relation platform: platform
+    
+    // Organization roles
     relation owner: user
     relation admin: user
     relation billing_admin: user
     relation member: user
     relation external_partner: user
 
+    // Full org management (owner + platform admins)
     permission manage_org = owner + platform->manage_organizations
+    
+    // Administrative access within the org
     permission admin_access = owner + admin + platform->manage_organizations
-    permission invite_members = owner + admin
-    permission manage_billing = owner + billing_admin
-    permission view_members = owner + admin + member + billing_admin
-    permission view_billing = owner + billing_admin
-    permission is_member = owner + admin + member + billing_admin
     permission is_admin = owner + admin + platform->manage_organizations
+    
+    // Member management
+    permission invite_members = owner + admin
+    permission view_members = owner + admin + member + billing_admin
+    
+    // Billing management
+    permission manage_billing = owner + billing_admin
+    permission view_billing = owner + billing_admin
+    
+    // Membership checks (used by other namespaces)
+    permission is_member = owner + admin + member + billing_admin
     permission is_external = external_partner
 }
 
+/**
+ * Department - organizational unit within an organization
+ */
 definition department {
     relation organization: organization
     relation manager: user
     relation member: user
 
+    // Manager + org admins have full department access
     permission admin_access = manager + organization->admin_access
-    permission view_members = manager + member + organization->view_members
     permission manage_team = manager + organization->admin_access
+    
+    // View department members
+    permission view_members = manager + member + organization->view_members
+    
+    // Membership checks
     permission is_member = member + manager
     permission is_manager = manager
 }
 
+/**
+ * Team - smaller unit within a department
+ */
 definition team {
     relation organization: organization
     relation department: department
     relation lead: user
     relation member: user
 
-    permission view_members = lead + member + department->manage_team
+    // Team management
     permission manage_team = lead + department->admin_access
+    permission view_members = lead + member + department->manage_team
+    
+    // Membership checks
     permission is_member = lead + member
+    permission is_lead = lead
 }
 
 // ============================================================================
 // LICENSING NAMESPACE - Product Access Control
 // ============================================================================
 
+/**
+ * Product - a product that can be licensed
+ */
 definition product {
     relation platform: platform
     
     permission manage = platform->manage_all
+    permission view = platform->manage_organizations
 }
 
+/**
+ * License - grants an organization access to a product
+ */
 definition license {
     relation organization: organization
     relation product: product
-    relation active: user  // Marker relation - if any user is related, license is active
+    
+    // For seat-based licensing: specific users who can use this license
     relation assigned_user: user
-
-    permission is_active = active
-    permission is_assigned = assigned_user
+    
+    // Check if license is usable by org members
     permission can_use = organization->is_member
+    permission is_assigned = assigned_user
+    permission manage = organization->manage_org
 }
 
 // ============================================================================
 // CATALOGUE NAMESPACE - Application Visibility
 // ============================================================================
 
+/**
+ * Category - grouping for applications in the catalogue
+ */
 definition category {
     relation platform: platform
     
     permission manage = platform->manage_all
+    permission view = platform->manage_organizations
 }
 
+/**
+ * Application - an application in the product catalogue
+ * Visibility is controlled at org level and user level
+ */
 definition application {
+    // Platform link for admin override
     relation platform: platform
+    
+    // Categorization
     relation category: category
+    
+    // Link to product for licensing
     relation product: product
+    
+    // Organization-level visibility: all members of these orgs can see the app
     relation visible_to_org: organization
+    
+    // User-level visibility: specific users who can see the app
     relation visible_to_user: user
+    
+    // User-level blocking: specific users who cannot see the app
     relation hidden_from_user: user
-    relation featured: user  // Marker
-    relation beta: user      // Marker
 
-    permission can_view_in_catalogue = visible_to_org->is_member + visible_to_user + platform->manage_all - hidden_from_user
+    // Visibility permission - platform admins always see everything
+    // Org members see if their org has visibility
+    // Individual users can have direct visibility
+    // Users can be explicitly hidden
+    permission can_view_in_catalogue = (visible_to_org->is_member + visible_to_user + platform->manage_all) - hidden_from_user
+    
+    // Launch permission - same as view for now
     permission can_launch = can_view_in_catalogue
+    
+    // Management
     permission manage = platform->manage_all
 }
 
@@ -137,6 +228,9 @@ definition application {
 // ANALYTICS NAMESPACE - Analytics Dashboard Product
 // ============================================================================
 
+/**
+ * Data Source - connection to an external data source
+ */
 definition analytics_data_source {
     relation organization: organization
     relation owner: user
@@ -144,24 +238,41 @@ definition analytics_data_source {
 
     permission configure = owner + configurator + organization->is_admin
     permission view = configure + organization->is_member
+    permission delete = owner + organization->is_admin
 }
 
+/**
+ * Dashboard - a collection of widgets showing analytics
+ */
 definition analytics_dashboard {
     relation organization: organization
     relation owner: user
     relation editor: user
     relation viewer: user
     relation department_viewer: department
-    relation org_visible: user  // Marker - if set, visible to all org members
 
+    // View: owner, editors, explicit viewers, department members, or org admins
     permission view = owner + editor + viewer + department_viewer->is_member + organization->is_admin
+    
+    // Edit: owner, editors, or org admins
     permission edit = owner + editor + organization->is_admin
+    
+    // Delete: only owner or org admins
     permission delete = owner + organization->is_admin
+    
+    // Share: owner and editors can share
     permission share = owner + editor
+    
+    // Export: anyone who can view
     permission export = view
+    
+    // Configure data sources: owner or org admins
     permission configure = owner + organization->is_admin
 }
 
+/**
+ * Report - a generated report from a dashboard
+ */
 definition analytics_report {
     relation organization: organization
     relation dashboard: analytics_dashboard
@@ -169,6 +280,7 @@ definition analytics_report {
     relation editor: user
     relation viewer: user
 
+    // Inherit view from dashboard, plus explicit permissions
     permission view = owner + editor + viewer + dashboard->view + organization->is_admin
     permission edit = owner + editor + organization->is_admin
     permission delete = owner + organization->is_admin
@@ -180,23 +292,35 @@ definition analytics_report {
 // DOCUMENT MANAGER NAMESPACE - Document Management Product
 // ============================================================================
 
+/**
+ * Folder - hierarchical container for documents
+ * Permissions cascade from parent folders
+ */
 definition docmgr_folder {
     relation organization: organization
     relation parent: docmgr_folder
     relation owner: user
     relation editor: user
     relation viewer: user
-    relation org_visible: user  // Marker
 
+    // Hierarchical permissions - inherit from parent
     permission view = owner + editor + viewer + parent->view + organization->is_admin
     permission edit = owner + editor + parent->edit + organization->is_admin
     permission delete = owner + parent->delete + organization->is_admin
+    
+    // Content creation
     permission create_document = edit
     permission create_subfolder = edit
+    
+    // Folder management
     permission manage = owner + organization->is_admin
     permission share = owner + editor
 }
 
+/**
+ * Document - a file or document in the system
+ * Inherits permissions from containing folder
+ */
 definition docmgr_document {
     relation organization: organization
     relation folder: docmgr_folder
@@ -204,8 +328,8 @@ definition docmgr_document {
     relation editor: user
     relation commenter: user
     relation viewer: user
-    relation org_visible: user  // Marker
 
+    // Inherit from folder with document-level overrides
     permission view = owner + editor + commenter + viewer + folder->view + organization->is_admin
     permission edit = owner + editor + folder->edit + organization->is_admin
     permission delete = owner + folder->delete + organization->is_admin
@@ -214,6 +338,9 @@ definition docmgr_document {
     permission create_share_link = owner + editor
 }
 
+/**
+ * Comment - a comment on a document
+ */
 definition docmgr_comment {
     relation document: docmgr_document
     relation author: user
@@ -223,35 +350,55 @@ definition docmgr_comment {
     permission delete = author + document->edit
 }
 
+/**
+ * Share Link - a public link to access a document
+ */
 definition docmgr_share_link {
     relation document: docmgr_document
     relation creator: user
-    relation token: user  // The "token" that grants access
+    
+    // Token holder - represents the bearer of the share link token
+    relation token_holder: user
 
-    permission access = token
+    permission access = token_holder
     permission manage = creator + document->share
+    permission revoke = creator + document->share
 }
 
 // ============================================================================
 // REPORTING API NAMESPACE - API Service
 // ============================================================================
 
+/**
+ * Scope - an OAuth2-style scope that grants API access
+ */
 definition reporting_scope {
     relation user_holder: user
     relation service_holder: service_account
 
     permission is_held = user_holder + service_holder->is_valid
+    permission is_held_by_user = user_holder
+    permission is_held_by_service = service_holder->is_valid
 }
 
+/**
+ * Endpoint - an API endpoint with scope requirements
+ */
 definition reporting_endpoint {
     relation organization: organization
     relation required_scope: reporting_scope
     relation read_scope: reporting_scope
     relation write_scope: reporting_scope
 
+    // Invoke: requires the scope OR org admin
     permission invoke = required_scope->is_held + organization->is_admin
+    
+    // Read: requires read scope or any invoke permission
     permission read_data = read_scope->is_held + invoke
+    
+    // Write: requires write scope or org admin
     permission write_data = write_scope->is_held + organization->is_admin
+    
+    // Admin: only org admins
     permission admin = organization->is_admin
 }
-
