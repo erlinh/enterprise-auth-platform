@@ -35,7 +35,7 @@ export default function LaunchPage() {
     loadApp();
   }, [id]);
 
-  // Countdown timer for demo purposes
+  // Countdown timer and redirect
   useEffect(() => {
     if (!app || error) return;
 
@@ -43,6 +43,10 @@ export default function LaunchPage() {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
+          // Redirect to the actual app
+          if (app.launchUrl.startsWith('http')) {
+            window.location.href = app.launchUrl;
+          }
           return 0;
         }
         return prev - 1;
@@ -119,14 +123,13 @@ export default function LaunchPage() {
         </div>
 
         <div className={styles.infoCard}>
-          <h3>Demo Mode</h3>
+          <h3>SSO Session Active</h3>
           <p>
-            In a production environment, you would now be redirected to:
+            Your authenticated session is being transferred to:
           </p>
           <code className={styles.url}>{app.launchUrl}</code>
           <p className={styles.note}>
-            The application would receive your authenticated session via SSO,
-            allowing seamless access without re-authentication.
+            You will be signed in automatically using your Microsoft Entra ID credentials.
           </p>
         </div>
 
@@ -147,9 +150,14 @@ export default function LaunchPage() {
           <button className={styles.backBtn} onClick={() => navigate('/')}>
             Back to Catalogue
           </button>
-          <button className={styles.detailsBtn} onClick={() => navigate(`/app/${app.id}`)}>
-            View Details
-          </button>
+          {app.launchUrl.startsWith('http') && (
+            <button 
+              className={styles.launchNowBtn} 
+              onClick={() => window.location.href = app.launchUrl}
+            >
+              Launch Now →
+            </button>
+          )}
         </div>
       </div>
     </div>

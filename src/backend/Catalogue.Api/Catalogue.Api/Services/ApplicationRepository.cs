@@ -22,8 +22,8 @@ public class InMemoryApplicationRepository : IApplicationRepository
             Id = "analytics-dashboard",
             Name = "Analytics Dashboard",
             Description = "Business intelligence and reporting tool with customizable dashboards",
-            IconUrl = "/icons/analytics.svg",
-            LaunchUrl = "/analytics",
+            IconUrl = "📊",
+            LaunchUrl = "http://localhost:3001",
             Category = "Analytics",
             Status = ApplicationStatus.Active,
             IsFeatured = true,
@@ -38,8 +38,8 @@ public class InMemoryApplicationRepository : IApplicationRepository
             Id = "document-manager",
             Name = "Document Manager",
             Description = "Document storage and collaboration with folder hierarchy and sharing",
-            IconUrl = "/icons/documents.svg",
-            LaunchUrl = "/documents",
+            IconUrl = "📁",
+            LaunchUrl = "http://localhost:3002",
             Category = "Productivity",
             Status = ApplicationStatus.Active,
             IsFeatured = true,
@@ -53,9 +53,9 @@ public class InMemoryApplicationRepository : IApplicationRepository
         {
             Id = "reporting-api",
             Name = "Reporting API",
-            Description = "API for data aggregation and report generation",
-            IconUrl = "/icons/api.svg",
-            LaunchUrl = "/api-docs/reporting",
+            Description = "RESTful APIs for enterprise data reporting and integration",
+            IconUrl = "📡",
+            LaunchUrl = "http://localhost:3003",
             Category = "Developer Tools",
             Status = ApplicationStatus.Active,
             SsoConfig = new SsoConfig
@@ -69,8 +69,8 @@ public class InMemoryApplicationRepository : IApplicationRepository
             Id = "admin-portal",
             Name = "Admin Portal",
             Description = "Platform administration for managing users, organizations, and permissions",
-            IconUrl = "/icons/admin.svg",
-            LaunchUrl = "/admin",
+            IconUrl = "⚙️",
+            LaunchUrl = "http://localhost:3005",
             Category = "Administration",
             Status = ApplicationStatus.Active,
             SsoConfig = new SsoConfig
@@ -81,13 +81,28 @@ public class InMemoryApplicationRepository : IApplicationRepository
         },
         new Application
         {
+            Id = "spicedb-admin",
+            Name = "SpiceDB Admin",
+            Description = "Manage authorization schema, users, organizations, and permissions",
+            IconUrl = "🛡️",
+            LaunchUrl = "http://localhost:3020",
+            Category = "Administration",
+            Status = ApplicationStatus.Active,
+            SsoConfig = new SsoConfig
+            {
+                ClientId = "spicedb-admin-client",
+                Scopes = new[] { "authz.admin" }
+            }
+        },
+        new Application
+        {
             Id = "team-calendar",
             Name = "Team Calendar",
             Description = "Shared calendar for team scheduling and event management",
-            IconUrl = "/icons/calendar.svg",
-            LaunchUrl = "/calendar",
+            IconUrl = "📅",
+            LaunchUrl = "http://localhost:3004",
             Category = "Productivity",
-            Status = ApplicationStatus.Active,
+            Status = ApplicationStatus.ComingSoon,
             SsoConfig = new SsoConfig
             {
                 ClientId = "calendar-client",
@@ -99,10 +114,10 @@ public class InMemoryApplicationRepository : IApplicationRepository
             Id = "expense-tracker",
             Name = "Expense Tracker",
             Description = "Track and manage business expenses with approval workflows",
-            IconUrl = "/icons/expense.svg",
-            LaunchUrl = "/expenses",
+            IconUrl = "💰",
+            LaunchUrl = "http://localhost:3006",
             Category = "Finance",
-            Status = ApplicationStatus.Active,
+            Status = ApplicationStatus.ComingSoon,
             IsBeta = true,
             SsoConfig = new SsoConfig
             {

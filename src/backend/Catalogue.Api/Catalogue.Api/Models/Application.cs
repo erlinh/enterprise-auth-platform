@@ -27,6 +27,7 @@ public enum ApplicationStatus
 {
     Active,
     Maintenance,
-    Deprecated
+    Deprecated,
+    ComingSoon
 }
 

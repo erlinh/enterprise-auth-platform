@@ -23,6 +23,9 @@ fi
 AUTHZ_PORT=${AUTHZ_PORT:-3010}
 CATALOGUE_API_PORT=${CATALOGUE_API_PORT:-5000}
 FRONTEND_PORT=${FRONTEND_PORT:-3000}
+ANALYTICS_PORT=${ANALYTICS_PORT:-3001}
+DOCMANAGER_PORT=${DOCMANAGER_PORT:-3002}
+REPORTING_PORT=${REPORTING_PORT:-3003}
 ADMIN_PORT=${ADMIN_PORT:-3020}
 SPICEDB_TOKEN=${SPICEDB_TOKEN:-mysecret}
 SPICEDB_ENDPOINT=${SPICEDB_ENDPOINT:-localhost:50051}
@@ -184,6 +187,87 @@ start_admin() {
     fi
 }
 
+# Start Analytics Dashboard
+start_analytics() {
+    if [ ! -d "$PROJECT_ROOT/src/frontend/analytics" ]; then
+        echo -e "  ${YELLOW}⚠${NC} Analytics Dashboard not found, skipping"
+        return
+    fi
+    
+    if is_running "analytics"; then
+        echo -e "  ${GREEN}✓${NC} Analytics Dashboard already running (PID: $(get_pid analytics))"
+        return
+    fi
+    
+    echo -e "  ${CYAN}Starting Analytics Dashboard on port $ANALYTICS_PORT...${NC}"
+    cd "$PROJECT_ROOT/src/frontend/analytics"
+    
+    npm run dev -- --port "$ANALYTICS_PORT" --host > "$LOG_DIR/analytics.log" 2>&1 &
+    
+    echo $! > "$PID_DIR/analytics.pid"
+    sleep 3
+    
+    if is_running "analytics"; then
+        echo -e "  ${GREEN}✓${NC} Analytics Dashboard started (PID: $(get_pid analytics))"
+    else
+        echo -e "  ${RED}✗${NC} Analytics Dashboard failed to start. Check $LOG_DIR/analytics.log"
+    fi
+}
+
+# Start Document Manager
+start_docmanager() {
+    if [ ! -d "$PROJECT_ROOT/src/frontend/docmanager" ]; then
+        echo -e "  ${YELLOW}⚠${NC} Document Manager not found, skipping"
+        return
+    fi
+    
+    if is_running "docmanager"; then
+        echo -e "  ${GREEN}✓${NC} Document Manager already running (PID: $(get_pid docmanager))"
+        return
+    fi
+    
+    echo -e "  ${CYAN}Starting Document Manager on port $DOCMANAGER_PORT...${NC}"
+    cd "$PROJECT_ROOT/src/frontend/docmanager"
+    
+    npm run dev -- --port "$DOCMANAGER_PORT" --host > "$LOG_DIR/docmanager.log" 2>&1 &
+    
+    echo $! > "$PID_DIR/docmanager.pid"
+    sleep 3
+    
+    if is_running "docmanager"; then
+        echo -e "  ${GREEN}✓${NC} Document Manager started (PID: $(get_pid docmanager))"
+    else
+        echo -e "  ${RED}✗${NC} Document Manager failed to start. Check $LOG_DIR/docmanager.log"
+    fi
+}
+
+# Start Reporting API UI
+start_reporting() {
+    if [ ! -d "$PROJECT_ROOT/src/frontend/reporting" ]; then
+        echo -e "  ${YELLOW}⚠${NC} Reporting API not found, skipping"
+        return
+    fi
+    
+    if is_running "reporting"; then
+        echo -e "  ${GREEN}✓${NC} Reporting API already running (PID: $(get_pid reporting))"
+        return
+    fi
+    
+    echo -e "  ${CYAN}Starting Reporting API on port $REPORTING_PORT...${NC}"
+    cd "$PROJECT_ROOT/src/frontend/reporting"
+    
+    npm run dev -- --port "$REPORTING_PORT" --host > "$LOG_DIR/reporting.log" 2>&1 &
+    
+    echo $! > "$PID_DIR/reporting.pid"
+    sleep 3
+    
+    if is_running "reporting"; then
+        echo -e "  ${GREEN}✓${NC} Reporting API started (PID: $(get_pid reporting))"
+    else
+        echo -e "  ${RED}✗${NC} Reporting API failed to start. Check $LOG_DIR/reporting.log"
+    fi
+}
+
 # Stop a service
 stop_service() {
     local name=$1
@@ -205,6 +289,9 @@ stop_service() {
 stop_services() {
     echo -e "${YELLOW}Stopping application services...${NC}"
     
+    stop_service "reporting"
+    stop_service "docmanager"
+    stop_service "analytics"
     stop_service "admin"
     stop_service "frontend"
     stop_service "catalogue-api"
@@ -215,6 +302,9 @@ stop_services() {
     pkill -f "Catalogue.Api" 2>/dev/null || true
     pkill -f "vite.*catalogue" 2>/dev/null || true
     pkill -f "vite.*admin" 2>/dev/null || true
+    pkill -f "vite.*analytics" 2>/dev/null || true
+    pkill -f "vite.*docmanager" 2>/dev/null || true
+    pkill -f "vite.*reporting" 2>/dev/null || true
     
     echo -e "${GREEN}✓ All application services stopped${NC}"
 }
@@ -233,6 +323,9 @@ start_all() {
     start_catalogue_api
     start_frontend
     start_admin
+    start_analytics
+    start_docmanager
+    start_reporting
     
     echo ""
     echo -e "${GREEN}All services started!${NC}"
@@ -304,6 +397,36 @@ show_status() {
             echo -e "    ${GREEN}●${NC} SpiceDB Admin      http://localhost:$ADMIN_PORT"
         else
             echo -e "    ${RED}○${NC} SpiceDB Admin"
+        fi
+    fi
+    
+    echo ""
+    echo -e "  ${CYAN}Demo Applications:${NC}"
+    
+    # Analytics
+    if [ -d "$PROJECT_ROOT/src/frontend/analytics" ]; then
+        if is_running "analytics"; then
+            echo -e "    ${GREEN}●${NC} Analytics          http://localhost:$ANALYTICS_PORT"
+        else
+            echo -e "    ${RED}○${NC} Analytics"
+        fi
+    fi
+    
+    # Document Manager
+    if [ -d "$PROJECT_ROOT/src/frontend/docmanager" ]; then
+        if is_running "docmanager"; then
+            echo -e "    ${GREEN}●${NC} Document Manager   http://localhost:$DOCMANAGER_PORT"
+        else
+            echo -e "    ${RED}○${NC} Document Manager"
+        fi
+    fi
+    
+    # Reporting
+    if [ -d "$PROJECT_ROOT/src/frontend/reporting" ]; then
+        if is_running "reporting"; then
+            echo -e "    ${GREEN}●${NC} Reporting API      http://localhost:$REPORTING_PORT"
+        else
+            echo -e "    ${RED}○${NC} Reporting API"
         fi
     fi
     
