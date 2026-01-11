@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { catalogueApi, Application } from '../api/client';
 import AppCard from '../components/AppCard';
 import styles from './CataloguePage.module.css';
 
 export default function CataloguePage() {
-  const navigate = useNavigate();
   const [applications, setApplications] = useState<Application[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -63,8 +61,10 @@ export default function CataloguePage() {
   };
 
   const handleLaunch = (app: Application) => {
-    // Navigate to the launch page instead of directly to the app
-    navigate(`/launch/${app.id}`);
+    // Open app directly in new tab
+    if (app.launchUrl.startsWith('http')) {
+      window.open(app.launchUrl, '_blank', 'noopener,noreferrer');
+    }
   };
 
   const filteredApps = applications.filter((app) =>
