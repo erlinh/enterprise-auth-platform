@@ -3,6 +3,9 @@ using Platform.Shared.AuthZ;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Load local configuration overrides (not committed to git)
+builder.Configuration.AddJsonFile("appsettings.local.json", optional: true, reloadOnChange: true);
+
 // Add YARP reverse proxy
 builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
