@@ -28,18 +28,23 @@ export function useAuth() {
     }
   };
 
-  const getAccessToken = async (): Promise<string | null> => {
+  const getAccessToken = async (forceRefresh = false): Promise<string | null> => {
     if (!user) return null;
 
     try {
       const response = await instance.acquireTokenSilent({
         ...apiRequest,
         account: user,
+        forceRefresh, // Force token refresh to validate session
       });
       return response.accessToken;
     } catch (error) {
       console.error('Token acquisition failed:', error);
-      // Fall back to interactive login
+      // Clear local cache and fall back to interactive login
+      const keys = Object.keys(localStorage).filter(k => k.startsWith('msal.'));
+      keys.forEach(k => localStorage.removeItem(k));
+      sessionStorage.clear();
+      
       try {
         await instance.acquireTokenRedirect(apiRequest);
         return null; // Redirect will occur

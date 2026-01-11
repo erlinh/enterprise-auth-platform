@@ -24,23 +24,23 @@ export function useAuth() {
     });
   };
 
-  const getAccessToken = async (): Promise<string | null> => {
+  const getAccessToken = async (forceRefresh = false): Promise<string | null> => {
     if (!account) return null;
     
     try {
       const response = await instance.acquireTokenSilent({
         ...apiRequest,
         account,
+        forceRefresh, // Force token refresh to validate session
       });
       return response.accessToken;
     } catch (error) {
       console.error('Token acquisition failed:', error);
-      try {
-        await instance.acquireTokenRedirect(apiRequest);
-      } catch (redirectError) {
-        console.error('Redirect failed:', redirectError);
-      }
-      return null;
+      // Session is invalid - clear local state and redirect to catalogue
+      const keys = Object.keys(localStorage).filter(k => k.startsWith('msal.'));
+      keys.forEach(k => localStorage.removeItem(k));
+      sessionStorage.clear();
+      throw error; // Re-throw so caller can handle
     }
   };
 
