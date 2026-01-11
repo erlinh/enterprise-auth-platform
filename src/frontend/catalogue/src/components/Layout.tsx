@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
-import { useAuth } from '../auth/useAuth';
+import { useAuth } from '@platform/shared-auth';
+import { loginRequest, apiRequest, CATALOGUE_URL, APP_NAME } from '../auth/config';
 import styles from './Layout.module.css';
 
 interface LayoutProps {
@@ -7,7 +8,12 @@ interface LayoutProps {
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const { user, logout } = useAuth();
+  const { user, logout } = useAuth({
+    loginRequest,
+    apiRequest,
+    catalogueUrl: CATALOGUE_URL,
+    appName: APP_NAME,
+  });
 
   return (
     <div className={styles.layout}>

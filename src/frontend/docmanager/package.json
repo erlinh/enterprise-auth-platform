@@ -10,6 +10,7 @@
   "dependencies": {
     "@azure/msal-browser": "^3.10.0",
     "@azure/msal-react": "^2.0.12",
+    "@platform/shared-auth": "file:../shared",
     "axios": "^1.6.5",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

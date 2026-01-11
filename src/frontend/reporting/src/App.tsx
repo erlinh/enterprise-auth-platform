@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useIsAuthenticated, useMsal } from '@azure/msal-react';
-import { useAuth } from './auth/useAuth';
-import { loginRequest } from './auth/msalConfig';
+import { useAuth, useSsoSync } from '@platform/shared-auth';
+import { loginRequest, apiRequest, CATALOGUE_URL, APP_NAME } from './auth/config';
 import './App.css';
 
 interface PermissionCheck {
@@ -22,53 +21,49 @@ interface AuthzResponse {
 }
 
 function App() {
-  const isAuthenticated = useIsAuthenticated();
-  const { instance, inProgress } = useMsal();
-  const { user, logout, getAccessToken } = useAuth();
+  const { isAuthenticated, isLoading, user, logout, getAccessToken, validateSession } = useAuth({
+    loginRequest,
+    apiRequest,
+    catalogueUrl: CATALOGUE_URL,
+    appName: APP_NAME,
+  });
+
+  // Sync SSO state across apps
+  useSsoSync({
+    isAuthenticated,
+    isLoading,
+    loginRequest,
+    catalogueUrl: CATALOGUE_URL,
+    appName: APP_NAME,
+    isCatalogue: false,
+  });
+
   const [permissions, setPermissions] = useState<PermissionResult[]>([]);
   const [loadingPermissions, setLoadingPermissions] = useState(false);
   const [tokenInfo, setTokenInfo] = useState<{ exp?: number; iat?: number; aud?: string } | null>(null);
+  const [sessionValidated, setSessionValidated] = useState(false);
 
-  // Force logout and clear session
-  const forceLogout = () => {
-    console.log('Session invalid, forcing logout');
-    const keys = Object.keys(localStorage).filter(k => k.startsWith('msal.'));
-    keys.forEach(k => localStorage.removeItem(k));
-    sessionStorage.clear();
-    window.location.href = 'http://localhost:3000'; // Go back to catalogue
-  };
-
+  // Validate Microsoft session on first load
+  // This catches the case where we have cached tokens but the Microsoft session is gone
+  // (e.g., user logged out from another app)
   useEffect(() => {
-    if (!isAuthenticated && inProgress === 'none') {
-      // Clear any stale local state before redirecting to login
-      forceLogout();
-    }
-  }, [isAuthenticated, inProgress]);
-
-  // Check session validity when tab becomes visible
-  useEffect(() => {
-    const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'visible' && isAuthenticated) {
-        try {
-          // Force token refresh to validate session with Microsoft
-          await getAccessToken(true);
-        } catch {
-          forceLogout();
+    if (isAuthenticated && user?.id && !sessionValidated) {
+      console.log(`[${APP_NAME}] Validating session with Microsoft...`);
+      setSessionValidated(true);
+      // Use validateSession which checks the actual Microsoft session via ssoSilent
+      validateSession().then((isValid) => {
+        if (isValid) {
+          console.log(`[${APP_NAME}] Session validated successfully`);
+          fetchPermissions();
+          fetchTokenInfo();
         }
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [isAuthenticated, getAccessToken]);
-
-  useEffect(() => {
-    if (isAuthenticated && user?.id) {
-      fetchPermissions();
-      fetchTokenInfo();
+        // If not valid, validateSession already handled the redirect
+      }).catch((error) => {
+        console.error(`[${APP_NAME}] Session validation failed:`, error);
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, user?.id, sessionValidated]);
 
   const fetchTokenInfo = async () => {
     const token = await getAccessToken();
@@ -100,7 +95,6 @@ function App() {
         },
         body: JSON.stringify({
           checks: [
-            // Application-level permissions (from catalogue)
             { resourceType: 'application', resourceId: 'reporting-api', permission: 'can_view_in_catalogue', subjectType: 'user', subjectId: user.id },
             { resourceType: 'application', resourceId: 'reporting-api', permission: 'can_launch', subjectType: 'user', subjectId: user.id },
             { resourceType: 'application', resourceId: 'reporting-api', permission: 'manage', subjectType: 'user', subjectId: user.id },
@@ -119,7 +113,7 @@ function App() {
     }
   };
 
-  if (inProgress !== 'none') {
+  if (isLoading) {
     return (
       <div className="loading-screen">
         <div className="loader"></div>
@@ -255,33 +249,29 @@ function App() {
             </div>
           </div>
 
-          {/* API Endpoints */}
+          {/* API Endpoints Card */}
           <div className="card api-card">
             <div className="card-header">
               <span className="card-icon">🔌</span>
-              <h2>Available Endpoints</h2>
+              <h2>API Endpoints</h2>
             </div>
             <div className="card-body">
               <div className="endpoint-list">
                 <div className="endpoint-item">
                   <span className="method get">GET</span>
-                  <code>/api/reports</code>
-                  <span className="endpoint-desc">List all reports</span>
+                  <span className="endpoint-path">/api/reports</span>
                 </div>
                 <div className="endpoint-item">
                   <span className="method post">POST</span>
-                  <code>/api/reports</code>
-                  <span className="endpoint-desc">Create new report</span>
+                  <span className="endpoint-path">/api/reports/generate</span>
                 </div>
                 <div className="endpoint-item">
                   <span className="method get">GET</span>
-                  <code>/api/reports/:id</code>
-                  <span className="endpoint-desc">Get report by ID</span>
+                  <span className="endpoint-path">/api/reports/{'{id}'}</span>
                 </div>
                 <div className="endpoint-item">
-                  <span className="method delete">DELETE</span>
-                  <code>/api/reports/:id</code>
-                  <span className="endpoint-desc">Delete a report</span>
+                  <span className="method delete">DEL</span>
+                  <span className="endpoint-path">/api/reports/{'{id}'}</span>
                 </div>
               </div>
             </div>
@@ -290,7 +280,7 @@ function App() {
 
         {/* Back to Catalogue */}
         <div className="back-section">
-          <a href="http://localhost:3000" className="btn-back">
+          <a href={CATALOGUE_URL} className="btn-back">
             ← Back to Product Catalogue
           </a>
         </div>

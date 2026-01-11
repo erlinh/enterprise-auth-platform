@@ -1,0 +1,18 @@
+{
+  "name": "enterprise-sso-demo",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:catalogue\" \"npm run dev:dashboard\" \"npm run dev:reports\" \"npm run dev:settings\"",
+    "dev:catalogue": "npm run dev -w packages/catalogue",
+    "dev:dashboard": "npm run dev -w packages/dashboard",
+    "dev:reports": "npm run dev -w packages/reports",
+    "dev:settings": "npm run dev -w packages/settings",
+    "install:all": "npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

@@ -1,8 +1,14 @@
-import { useAuth } from '../auth/useAuth';
+import { useAuth } from '@platform/shared-auth';
+import { loginRequest, apiRequest, CATALOGUE_URL, APP_NAME } from '../auth/config';
 import styles from './LoginPage.module.css';
 
 export default function LoginPage() {
-  const { login, isLoading } = useAuth();
+  const { login, isLoading } = useAuth({
+    loginRequest,
+    apiRequest,
+    catalogueUrl: CATALOGUE_URL,
+    appName: APP_NAME,
+  });
 
   return (
     <div className={styles.container}>

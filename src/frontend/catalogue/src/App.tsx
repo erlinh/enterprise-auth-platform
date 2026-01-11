@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from './auth/useAuth';
+import { useAuth, useSsoSync } from '@platform/shared-auth';
+import { loginRequest, apiRequest, CATALOGUE_URL, APP_NAME } from './auth/config';
 import { setTokenProvider } from './api/client';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
@@ -9,7 +10,35 @@ import ApplicationDetailPage from './pages/ApplicationDetailPage';
 import LaunchPage from './pages/LaunchPage';
 
 function App() {
-  const { isAuthenticated, isLoading, getAccessToken } = useAuth();
+  // Log on mount for debugging
+  useEffect(() => {
+    console.log('[Catalogue App] Mounted with URL:', window.location.href);
+    console.log('[Catalogue App] Query params:', window.location.search);
+    console.log('[Catalogue App] localStorage msal keys:', Object.keys(localStorage).filter(k => k.startsWith('msal.')));
+  }, []);
+
+  const { isAuthenticated, isLoading, getAccessToken } = useAuth({
+    loginRequest,
+    apiRequest,
+    catalogueUrl: CATALOGUE_URL,
+    appName: APP_NAME,
+    isCatalogue: true,
+  });
+
+  // Log auth state changes
+  useEffect(() => {
+    console.log('[Catalogue App] Auth state changed:', { isAuthenticated, isLoading });
+  }, [isAuthenticated, isLoading]);
+
+  // Sync SSO state - this is the catalogue, so isCatalogue=true
+  useSsoSync({
+    isAuthenticated,
+    isLoading,
+    loginRequest,
+    catalogueUrl: CATALOGUE_URL,
+    appName: APP_NAME,
+    isCatalogue: true,
+  });
 
   useEffect(() => {
     setTokenProvider(getAccessToken);
@@ -74,4 +103,3 @@ function LoadingScreen() {
 }
 
 export default App;
-

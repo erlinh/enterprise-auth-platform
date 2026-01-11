@@ -1,0 +1,9 @@
+{
+  "name": "@enterprise-sso/shared",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "auth-config.ts",
+  "dependencies": {
+    "@azure/msal-browser": "^3.6.0"
+  }
+}
