@@ -31,9 +31,26 @@ function App() {
 
   useEffect(() => {
     if (!isAuthenticated && inProgress === 'none') {
+      // Clear any stale local state before redirecting to login
+      const keys = Object.keys(localStorage).filter(k => k.startsWith('msal.'));
+      keys.forEach(k => localStorage.removeItem(k));
+      
       instance.loginRedirect(loginRequest);
     }
   }, [isAuthenticated, inProgress, instance]);
+
+  // Check if token is still valid, force re-auth if not
+  useEffect(() => {
+    if (isAuthenticated && user?.id) {
+      getAccessToken().catch(() => {
+        // Token acquisition failed, session may be invalid
+        console.log('Token invalid, clearing session');
+        const keys = Object.keys(localStorage).filter(k => k.startsWith('msal.'));
+        keys.forEach(k => localStorage.removeItem(k));
+        window.location.reload();
+      });
+    }
+  }, [isAuthenticated, user?.id]);
 
   useEffect(() => {
     if (isAuthenticated && user?.id) {
